@@ -1,15 +1,24 @@
-import express from 'express';
+import express, { json } from 'express';
 import {z} from "zod";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { UserModel } from './db';
-import mongoose from 'mongoose';
+import { ContentModel, LinkModel, UserModel } from './db';
+import mongoose, { Model } from 'mongoose';
+import { userMiddleware } from './middleware';
+import crypto from "crypto";
+import dotenv from "dotenv";
+import cors from "cors";
+dotenv.config();
 const app=express();
+
+app.use(cors())
+
 app.use(express.json());
 mongoose.connect(
-  "mongodb+srv://yashsrivasta7a:1v7s56CxMmWzZyQM@essesntialspacecluster.3ak31su.mongodb.net/EssentialSpaces"
+  "mongodb+srv://yashsrivasta7a:1v7s56CxMmWzZyQM@essesntialspacecluster.3ak31su.mongodb.net/EssentialSpace"
 );
 
+const key = process.env.JWT_PASSWORD || "default_jwt_secert";
 
 
 const zodSignup = z.object({
@@ -20,7 +29,7 @@ const zodSignup = z.object({
     )
 })
 
-app.post('/api/v1/signup', async (req, res) => {
+app.post('/api/v1/signup', async (req, res):Promise<any> =>{
     try {
         const { username, pass } = zodSignup.parse(req.body);
         const existingUser = await UserModel.findOne({ username });
@@ -28,14 +37,15 @@ app.post('/api/v1/signup', async (req, res) => {
             return res.status(409).json({ message: "User already exists" });
         }
         const hashedPass = await bcrypt.hash(pass, 10);
-        await UserModel.create({ username, pass: hashedPass });
+        const newUser = await UserModel.create({ username, pass: hashedPass });
+        
         res.status(201).json({ message: "Signed Up" });
     } catch (error) {
         res.status(400).json({ message: "Invalid input" });
     }
 });
 
-app.post('/api/v1/signin', async (req, res) => {
+app.post('/api/v1/signin', async (req,res):Promise<any> => {
     try {
         const { username, pass } = zodSignup.parse(req.body);
         const user = await UserModel.findOne({ username });
@@ -46,24 +56,142 @@ app.post('/api/v1/signin', async (req, res) => {
         if (!isPasswordValid) {
             return res.status(401).json({ message: "Invalid username or password" });
         }
-        const token = jwt.sign({ userId: user._id, username: user.username }, "your_jwt_secret", { expiresIn: "1h" });
+
+        const key = process.env.JWT_PASSWORD || "default_jwt_secert";
+
+        const token = jwt.sign({ userId: user._id, username: user.username }, key, { expiresIn: "1h" });
         res.json({ message: "Signed In", token });
     } catch (error) {
         res.status(400).json({ message: "Invalid input" });
     }
 });
 
-app.get('/api/v1/content',(res,req)=>{
+app.post('/api/v1/content', userMiddleware,async (req,res)=>{
+      const link = req.body.link;
+      const title = req.body.title;
 
+     await ContentModel.create({  
+        link,
+        title,
+         //@ts-ignore
+        userId: req.userId,
+        tags:[]
+      })
+
+      res.json({
+        message:"content added"
+      })
 });
 
-app.post('/api/v1/brain/share',(res,req)=>{
 
+app.get('/api/v1/content',userMiddleware , async(req,res)=>{
+      //@ts-ignore
+      const userId = req.userId;
+      const content =  await ContentModel.find({
+        userId,    
+      }).populate("userId","username")
+      res.json({
+        content
+      })
+      
 });
 
 
-app.get('/api/v1/brain/:shareLink',(res,req)=>{
+app.delete('/api/v1/content',userMiddleware,async (req,res) =>{
+      const contentId = req.body.contentId;
 
+      await ContentModel.deleteMany({
+       
+        contentId,
+         //@ts-ignore
+        userId:req.userId 
+      })
+       res.json({
+            message:"Deleted"
+        })
 });
 
-app.listen(3001);
+app.post('/api/v1/brain/share',userMiddleware ,async (req,res)=>{
+       try {
+           const {share} = req.body;
+           const hash = crypto.randomBytes(8).toString("hex")
+           if(share){
+
+            const existingLink = await LinkModel.findOne({
+                //@ts-ignore
+                userId:req.userId,
+              
+            })
+
+            if(existingLink){
+               res.json({
+                hash: existingLink.hash
+               })
+               return;
+            }
+         
+            
+            await LinkModel.create({
+                //@ts-ignore
+                userId: req.userId,
+                hash: hash,
+            })
+
+            res.json({
+               message:"/share/" + hash
+            })
+           }else{
+            await LinkModel.deleteOne({
+                //@ts-ignore
+                userId:req.userId,
+            });
+            res.json({
+              message:"Link Deleted"
+            })
+           }
+          
+       } catch(error) {
+          res.status(400).json({ message: "Invalid input" });
+       }
+       
+});
+
+
+app.get('/api/v1/brain/:shareLink',userMiddleware, async(req,res)=>{
+      const hash = req.params.shareLink;
+
+      const link = await LinkModel.findOne({
+            hash,// security 
+      })
+
+      if(!link){
+        res.status(411).json({
+               message:"Incorrect Input"
+        })
+        return;
+      }
+      
+      const content = await ContentModel.find({
+        userId: link?.userId
+      })
+    
+    
+      const user = await UserModel.findOne({
+        _id: link?.userId
+      })
+
+      if(!user){
+        res.status(411).json({
+          message:"User not found"
+        })
+      }
+       
+      res.json({
+        username: user?.username,
+        content: content
+      })
+});
+
+app.listen(3001, ()=>{
+    console.log("Server Chal Gya");
+});
