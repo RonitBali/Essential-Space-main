@@ -16,9 +16,10 @@ const tagSchema = new mongoose_1.default.Schema({
 });
 const conTentTypes = ['image', 'video', 'article', 'audio']; // Extend as needed
 const contentSchema = new Schema({
-    link: { type: String, required: true, unique: true },
+    link: { type: String, required: true },
     title: { type: String, required: true },
     tags: [{ type: Schema.Types.ObjectId, ref: 'Tag' }],
+    type: { type: String, required: true },
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true }
 });
 const linkSchema = new mongoose_1.default.Schema({

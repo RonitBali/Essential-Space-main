@@ -61,8 +61,10 @@ app.post('/api/v1/signin', (req, res) => __awaiter(void 0, void 0, void 0, funct
             return res.status(401).json({ message: "Invalid username or password" });
         }
         const key = process.env.JWT_PASSWORD || "default_jwt_secert";
-        const token = jsonwebtoken_1.default.sign({ userId: user._id, username: user.username }, key, { expiresIn: "1h" });
-        res.json({ message: "Signed In", token });
+        const token = jsonwebtoken_1.default.sign({ userId: user._id, username: user.username }, key, { expiresIn: "24h" });
+        res.json({ message: "Signed In",
+            token
+        });
     }
     catch (error) {
         res.status(400).json({ message: "Invalid input" });
@@ -71,9 +73,11 @@ app.post('/api/v1/signin', (req, res) => __awaiter(void 0, void 0, void 0, funct
 app.post('/api/v1/content', middleware_1.userMiddleware, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const link = req.body.link;
     const title = req.body.title;
+    const type = req.body.type;
     yield db_1.ContentModel.create({
         link,
         title,
+        type,
         //@ts-ignore
         userId: req.userId,
         tags: []
@@ -94,8 +98,8 @@ app.get('/api/v1/content', middleware_1.userMiddleware, (req, res) => __awaiter(
 }));
 app.delete('/api/v1/content', middleware_1.userMiddleware, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const contentId = req.body.contentId;
-    yield db_1.ContentModel.deleteMany({
-        contentId,
+    yield db_1.ContentModel.deleteOne({
+        _id: contentId,
         //@ts-ignore
         userId: req.userId
     });

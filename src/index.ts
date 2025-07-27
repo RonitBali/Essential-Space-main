@@ -14,9 +14,8 @@ const app=express();
 app.use(cors())
 
 app.use(express.json());
-mongoose.connect(
-  "mongodb+srv://yashsrivasta7a:1v7s56CxMmWzZyQM@essesntialspacecluster.3ak31su.mongodb.net/EssentialSpace"
-);
+const mongoose = process.env.MONG
+mongoose.connect()
 
 const key = process.env.JWT_PASSWORD || "default_jwt_secert";
 
@@ -59,8 +58,13 @@ app.post('/api/v1/signin', async (req,res):Promise<any> => {
 
         const key = process.env.JWT_PASSWORD || "default_jwt_secert";
 
-        const token = jwt.sign({ userId: user._id, username: user.username }, key, { expiresIn: "1h" });
-        res.json({ message: "Signed In", token });
+        const token = jwt.sign({ userId: user._id, username:
+           user.username }, key,
+            { expiresIn: "24h" });
+            
+        res.json({ message: "Signed In", 
+          token
+         });
     } catch (error) {
         res.status(400).json({ message: "Invalid input" });
     }
@@ -69,10 +73,12 @@ app.post('/api/v1/signin', async (req,res):Promise<any> => {
 app.post('/api/v1/content', userMiddleware,async (req,res)=>{
       const link = req.body.link;
       const title = req.body.title;
+      const type = req.body.type;
 
      await ContentModel.create({  
         link,
         title,
+        type,
          //@ts-ignore
         userId: req.userId,
         tags:[]
@@ -100,9 +106,9 @@ app.get('/api/v1/content',userMiddleware , async(req,res)=>{
 app.delete('/api/v1/content',userMiddleware,async (req,res) =>{
       const contentId = req.body.contentId;
 
-      await ContentModel.deleteMany({
+      await ContentModel.deleteOne({
        
-        contentId,
+        _id: contentId,
          //@ts-ignore
         userId:req.userId 
       })
