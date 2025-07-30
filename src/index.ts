@@ -14,8 +14,11 @@ const app=express();
 app.use(cors())
 
 app.use(express.json());
-const mongoose = process.env.MONG
-mongoose.connect()
+const mongoosedb = process.env.mongoose_db;
+if (!mongoosedb) {
+    throw new Error("Environment variable 'mongoose_db' is not defined.");
+}
+mongoose.connect(mongoosedb);
 
 const key = process.env.JWT_PASSWORD || "default_jwt_secert";
 
@@ -163,7 +166,7 @@ app.post('/api/v1/brain/share',userMiddleware ,async (req,res)=>{
 });
 
 
-app.get('/api/v1/brain/:shareLink',userMiddleware, async(req,res)=>{
+app.get('/api/v1/brain/:shareLink', async(req,res)=>{
       const hash = req.params.shareLink;
 
       const link = await LinkModel.findOne({
@@ -196,6 +199,30 @@ app.get('/api/v1/brain/:shareLink',userMiddleware, async(req,res)=>{
         username: user?.username,
         content: content
       })
+});
+
+app.patch('/api/v1/brain/update',userMiddleware, async(req,res)=>{
+  try {
+    const {id, title, link} = req.body;
+  
+   await ContentModel.updateOne({
+    _id:id,
+    //@ts-ignore
+    userId: req.userId
+   },
+   {
+    $set:{title,link}
+   }
+  )
+   res.json({
+    message:"Content Updated"
+   })
+  } catch(error) {
+    console.log(error)
+    res.status(500).json({
+      error:"Something went wrong"
+    })
+  }
 });
 
 app.listen(3001, ()=>{

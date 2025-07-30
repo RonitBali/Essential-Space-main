@@ -26,7 +26,11 @@ dotenv_1.default.config();
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
-mongoose_1.default.connect("mongodb+srv://yashsrivasta7a:1v7s56CxMmWzZyQM@essesntialspacecluster.3ak31su.mongodb.net/EssentialSpace");
+const mongoosedb = process.env.mongoose_db;
+if (!mongoosedb) {
+    throw new Error("Environment variable 'mongoose_db' is not defined.");
+}
+mongoose_1.default.connect(mongoosedb);
 const key = process.env.JWT_PASSWORD || "default_jwt_secert";
 const zodSignup = zod_1.z.object({
     username: zod_1.z.string().min(6, "Username must have 6 characters"),
@@ -145,7 +149,7 @@ app.post('/api/v1/brain/share', middleware_1.userMiddleware, (req, res) => __awa
         res.status(400).json({ message: "Invalid input" });
     }
 }));
-app.get('/api/v1/brain/:shareLink', middleware_1.userMiddleware, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+app.get('/api/v1/brain/:shareLink', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const hash = req.params.shareLink;
     const link = yield db_1.LinkModel.findOne({
         hash, // security 
